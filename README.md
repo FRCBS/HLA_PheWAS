@@ -20,6 +20,6 @@ Scripts for associations and plotting:
 
 `SNP_PheWAS.R` Processing SNP summary statistics
 
-`plots.R` Plotting the results for figures 1-6
+`plots.R` Plotting the results for figures 1-4, S1-S2
 
 `functions.R` Some helper functions
