@@ -1,7 +1,7 @@
 # HLA_PheWAS
 HLA PheWAS analysis code
 
-Manuscript preprint: https://www.medrxiv.org/content/10.1101/2020.10.26.20219899v2
+Manuscript preprint: https://www.medrxiv.org/content/10.1101/2020.10.26.20219899v3
 
 ## code (./src/)
 Scripts for associations and plotting:
