@@ -1,9 +1,9 @@
 
 ## libs
-sapply(c('tidyverse','data.table','ggpubr','viridis','rasterpdf','mutoss', 'Biostrings', 'MASS', 
-         'sfsmisc', 'circlize', 'BioCircos', 'ghibli', 'RColorBrewer', 'SPAtest', 'ggstance', 'ggrepel'),
+sapply(c('tidyverse','data.table','ggpubr','viridis','rasterpdf', 'MASS', 'icd','mutoss', 'metap', 'cfdr.pleio',
+         'sfsmisc',  'ghibli', 'RColorBrewer', 'SPAtest', 'ggstance', 'ggrepel', 'readxl', 'biomaRt' ,'qqplotr'),
        library, character.only=T)
-
+# , 'Biostrings', 'circlize',
 options(stringsAsFactors=F)
 
 
@@ -17,6 +17,27 @@ Z.test.2 <- function(m1, m2, se1, se2) { # means and sd's
   pnorm(abs(zstat), lower.tail=F)*2
 }
 
+# calculates protein divergence between two HLA alleles
+HLAdivergence <- function(alleles, divergence.table, aligned.fasta, method='gms') {
+  
+  allele.match <- match(alleles, names(aligned.fasta))
+  
+  if (any(is.na(allele.match))) { NA } else {
+    
+    ind <- match(alleles, names(aligned.fasta))
+    
+    tmp <- data.frame(S1=str_split(toString(aligned.fasta[[ ind[1] ]]), '')[[1]],
+                      S2=str_split(toString(aligned.fasta[[ ind[2] ]]), '')[[1]]) %>% unite(., 'AApair', S1, S2, sep='')
+    tmp <- left_join(tmp, divergence.table, by='AApair') %>% na.omit
+    
+    if(method=='gms')      tmp <- tmp$gms_mean %>% sum
+    if(method=='grantham') tmp <- tmp$grantham %>% sum
+    if(method=='miyata')   tmp <- tmp$miyata %>% sum
+    if(method=='sneath')   tmp <- tmp$sneath %>% sum
+    
+    tmp / length(aligned.fasta[[1]])
+  }
+}
 
 # HLA notation formatting
 formHLA <- function(x) {
@@ -25,58 +46,72 @@ formHLA <- function(x) {
   gsub(':$', '', out)
 }
 
-# data read-in and MHC manhattan plotting for SNP summary stats
-multiManhattan <- function(phe.ind, ann='') {
 
-  # read in a data file and reformat
-  dat <- lapply(ls.snps[phe.ind], function(i) {
-    dat     <- fread(i, data.table=F)
-    colnames(dat) <- c('chrom',	'pos', 'ref', 'alt', 'rsids', 'nearest_genes', 'pval',	'beta',	'sebeta', 'maf', 'maf_cases',	
-                       'maf_controls', 'n_hom_cases', 'n_het_cases', 'n_hom_controls', 'n_het_controls')
-    dat$pos <- dat$pos/1e6 
-    dat     <- mutate(dat, logP=log10(pval)*(-1))
-    tmp.nm  <- gsub('./data/sumstats_MHC_finngen_R5_all/MHC_finngen_R5_', '', i, fixed=T)
-    dat     <- data.frame(dat, pheno=tmp.nm)
-  }) %>% do.call(rbind, .)
- 
-  # MHC region gene names and colors for plotting 
-  dat.col.vec <- rep('no', nrow(dat))
-  sapply(1:nrow(mhc.genes.selected), function(i) {
-    dat.col.vec[
-      which(dat$pos >= mhc.genes.selected$start_position[i] & dat$pos <= mhc.genes.selected$end_position[i])
-      ] <<- 'gene' 
-  }) %>% invisible
-  dat <- data.frame(dat, gene=dat.col.vec %>% factor(levels=dat.col.vec %>% unique))
+# from https://rdrr.io/github/alexploner/condFDR/src/R/condFDR.R
+ccFDR = function(data, p1, p2, p_threshold = 1E-3, mc.cores = 1)
+{
+  ## Extract the data
+  if ( !missing(data) ) {
+    stopifnot( is.matrix(data) | is.data.frame(data)  )
+    p1 = data[, p1]
+    p2 = data[, p2]
+  } else {
+    stopifnot( length(p1) == length(p2))
+    p1_name = deparse(substitute(p1))
+    p2_name = deparse(substitute(p2))
+  }
   
-  # annotation data frame for top SNP
-  dat.snp <- tapply(1:nrow(dat), dat$pheno, function(x) {
-    tmp <- filter(dat[x, ], pval==min(pval))
-    tmp$nearest_genes <- paste0('(', tmp$nearest_genes, ')')
-    tmp
-  }) %>% do.call(rbind, .)
-  dat.snp <- unite(dat.snp, anno, rsids, nearest_genes, sep=' ')
+  ## Check: probabilities, no missing values
+  doCheck = function(x) is.numeric(x) & !any(is.na(x)) & !any(x<0) & !any(x>1)
+  stopifnot( doCheck(p1) & doCheck(p2) )
   
-  # draw and return a ggplot
-  ggplot(dat, aes(pos, logP)) +
-    geom_point(size=0.99, fill='#a0c4e2', color='#5aadf2', shape=21, alpha=0.7, stroke=0.15) +
-    geom_point(aes(pos, logP), data=filter(dat, gene=='gene'), fill='royalblue1', color='royalblue3', 
-               size=0.99, shape=21, stroke=0.15) +
-    geom_hline(yintercept=(log10(5e-8)*(-1)), linetype='dashed', size=0.2, alpha=0.9, color='black') +
-    ylab(expression('-log'[10]*'('*italic(p)*')')) +
-    scale_x_continuous(limits=c(29.7, 33.12), breaks=mhc.genes.selected$gene_mean, 
-                       labels=mhc.genes.selected$wikigene_name, 
-                       position='bottom', name='gene',  minor_breaks=NULL, guide=guide_axis(check.overlap=F),
-                       sec.axis=sec_axis(~., name='chr 6 position (Mb)'),
-                       expand=expansion(0.01)) +
-    scale_y_continuous(expand=expansion(mult=c(0, 0.2))) +
-    facet_wrap(~pheno, ncol=1, strip.position='right', scale='free_y') +
-    geom_label_repel(aes(pos, logP, label=anno), data=dat.snp, segment.size=0.2, nudge_x=0.3, nudge_y=-0.3, 
-                     size=2.5, min.segment.length=0) +
-    geom_text(data=ann, mapping=aes(x=29.7, y=Inf, label=label), hjust=0, vjust=2, size=3.2) +
-    theme(panel.background=element_blank(), panel.border=element_rect(size=0.2, fill=NA), legend.position='none',
-          strip.background=element_rect(fill='white'), axis.text.x.bottom=element_text(angle=45, hjust=1, size=7),
-          axis.text.x.top=element_text(size=8), strip.text=element_text(size=7),
-          axis.line.x=element_line(size=.3), axis.line.y=element_line(size=.3)) 
+  ## Subset
+  p_threshold = rep_len(p_threshold, length.out = 2)
+  ndx = (p1 <= p_threshold[1]) | (p2 <= p_threshold[2])
+  stopifnot( any(ndx) )
+  p1  = p1[ndx]
+  p2  = p2[ndx]
+  
+  ## Loop
+  nn = length(p1)
+  calc.denoms = function(i)
+  {
+    ## The edge point
+    x = p1[i]
+    y = p2[i]
+    
+    ## Vectors
+    dd1 = p2 <= y
+    dd2 = p1 <= x
+    ee = dd1 & dd2
+    
+    ## Combine
+    ee_n = length(which(ee))
+    denom1 =  ee_n / length(which(dd2))
+    denom2 =  ee_n / length(which(dd2))
+    
+    c(denom1, denom2)
+  }
+  ## This needs a bit care: unlist generates a vector with alternating denom1/denom2
+  ## We can pour this vector into a matrix with two rows, without having to re-order,
+  ## and can extract the rows in the next step
+  denoms = matrix( unlist( parallel::mclapply(1:nn, calc.denoms, mc.cores = mc.cores) ), nrow = 2)
+  
+  ## Calibrate the p-values; note: use rows!
+  cfdr1 = p1 / denoms[1, ]
+  cfdr2 = p2 / denoms[2, ]
+  ccfdr = pmax(cfdr1, cfdr2)
+  
+  ## Build output
+  if ( !missing(data) ) {
+    ret = cbind(data[ndx, ], cFDR1 = cfdr1, cFDR2 = cfdr2, ccFDR = ccfdr)
+  } else {
+    ret = data.frame(p1, p2, cFDR1 = cfdr1, cFDR2 = cfdr2, ccFDR = ccfdr)
+    colnames(ret)[1:2] = c(p1_name, p2_name)
+  }
+  
+  ret
 }
+
 
 
