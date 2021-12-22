@@ -1,7 +1,7 @@
 # HLA_PheWAS
 HLA PheWAS analysis code
 
-Submitted manuscript
+Submitted manuscript: "HLA-disease association and pleiotropy landscape in over 235 000 Finns"
 
 ## code (./src/)
 Scripts for associations and plotting:
