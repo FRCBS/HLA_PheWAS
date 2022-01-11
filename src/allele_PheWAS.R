@@ -5,7 +5,6 @@
 
 # libs and funcs
 source('./src/functions.R')
-source('./src/condFDR.R')
 
 
 ## -------------------------------------------------------
@@ -35,6 +34,8 @@ results.stats           <- fread('./data/R3_allele_stats.tsv', data.table=F)
 results.stats$locus     <- formHLA(results.stats$locus)
 results.rep.stats       <- fread('./data/R5_allele_stats.tsv', data.table=F)
 results.rep.stats$locus <- formHLA(results.rep.stats$locus)
+r3.freqs                <- fread('data/R3_HLA_allelefreqs.tsv', data.table=F)
+r5.freqs                <- fread('data/R5_HLA_allelefreqs.tsv', data.table=F)
 
 # other hla phewas studies
 # karnes
@@ -127,6 +128,12 @@ results.anno.stats.fdr.replicated$FisherP <- map(1:nrow(results.anno.stats.fdr.r
            error=function(e) NA) %>% return
 })
 
+# HLA allele frequencies in discovery and replication cohorts
+results.anno.stats.fdr.replicated <- inner_join(results.anno.stats.fdr.replicated, r3.freqs, 
+                                                by=c('locus'='HLA')) %>% inner_join(., r5.freqs, by=c('locus'='HLA'))
+results.anno.stats.fdr.replicated <- results.anno.stats.fdr.replicated[, c(1:4, 23, 5:13, 24, 14:22)]
+colnames(results.anno.stats.fdr.replicated)[5]  <- 'HLA.allele.freq'
+colnames(results.anno.stats.fdr.replicated)[15] <- 'replication.HLA.allele.freq'
 
 # write out
 results.anno.stats.list <- tapply(1:nrow(results.anno.stats), results.anno.stats$pheno, function(x) 
@@ -138,6 +145,7 @@ results.anno.stats.fdr.list <- tapply(1:nrow(results.anno.stats.fdr), results.an
 results.anno.stats.fdr.replicated.list <- tapply(1:nrow(results.anno.stats.fdr.replicated), 
                                                  results.anno.stats.fdr.replicated$pheno, function(x) 
                                                    results.anno.stats.fdr.replicated[x, ]) 
+
 
 write.table(lapply(results.anno.stats.list, function(x) rbind(data.frame(x), rep(' ', ncol(results.anno.stats)))) %>% 
               do.call(rbind, .), './results/R3_PheWAS_full.tsv', sep='\t', row.names=F)
@@ -355,6 +363,31 @@ p.studies.comp <- ggplot(studies.comp, aes(odds_ratio_study, odds_ratio_y)) +
         strip.background=element_rect(fill=NA),
         legend.key.size=unit(0.6, 'cm'), legend.text=element_text(size=8)) 
 
+p.studies.comp.2 <- ggplot(studies.comp, aes(odds_ratio_study %>% log, odds_ratio_y %>% log)) +
+  geom_point(aes(fill=phenotype, shape=study, group=group, color=phenotype), alpha=0.95, size=3) +
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=0.4, nudge_y=-0.2, 
+                   data=studies.comp[c(184, 187, 189, 54, 66, 109, 194, 199, 206, 190, 193, 164, 204, 208), ],
+                   size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0, direction='both') +
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=-0.3, nudge_y=-0.1, 
+                   data=studies.comp[c(52, 78, 138, 139, 140, 201), ],
+                   size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0, direction='both') +
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.3, nudge_x=0.2, nudge_y=0,
+                   data=studies.comp[c(116, 118, 85, 2, 125), ], 
+                   direction='both', size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0) +
+  scale_shape_manual(values=c(24, 21, 23)) +
+  scale_color_manual(values=rep('white', studies.comp$phenotype %>% unique %>% length)) +
+  scale_fill_manual(guide=guide_legend(override.aes=list(shape=22)),
+                    values=c(brewer.pal(8, name='Set2'), brewer.pal(8, name='Dark2'))[1:(studies.comp$phenotype %>% unique %>% length)]) +
+  xlab('beta (previous studies)') + ylab('beta (present study)') +
+  xlim(c(-2, 2.5)) + ylim(c(-2, 2)) +
+  geom_hline(yintercept=0, size=0.2, linetype='dashed', color='grey40') +
+  geom_vline(xintercept=0, size=0.2, linetype='dashed', color='grey40') +
+  theme(panel.background=element_blank(),  legend.key=element_blank(),
+        axis.text.x=element_text(size=8, angle=0, hjust=1), axis.text.y=element_text(size=8.5), 
+        axis.line.x=element_line(size=.3), axis.line.y=element_line(size=.3), 
+        axis.title.y=element_text(color='black'), legend.position='right',
+        strip.background=element_rect(fill=NA),
+        legend.key.size=unit(0.6, 'cm'), legend.text=element_text(size=8)) 
 
 ## --------------------------------------------------------
 ## replication correlation
@@ -369,7 +402,7 @@ p.rep.corr <-ggplot(rbind(data.frame(filter(results.anno, beta<5.1, beta.replica
   stat_cor(method="pearson", aes(label=..r.label..), size=3) +
   xlab('beta (discovery cohort)') + ylab('beta (replication cohort)') +
   facet_wrap(~group, scales='free', nrow=2, ncol=1) +
-  theme(strip.background=element_rect(fill='grey85', color='white'), strip.text=element_text(size=12),
+  theme(strip.background=element_rect(fill='grey90', color='white'), strip.text=element_text(size=10),
         panel.border=element_blank(), panel.background=element_blank(), axis.line.x=element_line(size=0.3),
         axis.line.y=element_line(size=0.3), axis.text.y=element_text(size=8.5), axis.text.x=element_text(size=8.5),
         panel.grid.major=element_blank(), panel.grid.minor=element_blank())
@@ -436,7 +469,7 @@ p.autoimm.cond <- ggplot(results.cond.f.autoimm.2, aes(HLA, covpheno, fill=beta)
 
 
 ## --------------------------------------------------------
-## pleiotropy ccFDR
+## pleiotropy ccFDR 
 ## --------------------------------------------------------
 
 # https://rdrr.io/github/alexploner/condFDR/man/ccFDR.html
@@ -473,6 +506,51 @@ p.inf.autoimm.ccfdr <- ggplot(filter(inf.autoimm.ccfdr, adj_ccFDR<0.001), aes(lo
         panel.background=element_rect(fill="white", colour="white"), axis.ticks=element_blank(), 
         legend.title=element_text(size=10), legend.text=element_text(size=8), legend.position='top') 
 
+## --------------------------------------------------------
+## combine ccFDR and infections and autoimmune
+## conditional analysis
+## --------------------------------------------------------
+
+inf.autoimm.ccfdr
+results.cond.f.infect.2
+results.cond.f.autoimm.2
+
+results.cond.f.infect.3 <- inner_join(results.cond.f.infect.2, inf.autoimm.ccfdr, 
+                                      by=c('pheno'='phenoi', 'covpheno'='phenoa', 'HLA'='locus'))
+results.cond.f.autoimm.3 <- inner_join(results.cond.f.autoimm.2, inf.autoimm.ccfdr, 
+                                      by=c('pheno'='phenoa', 'covpheno'='phenoi', 'HLA'='locus'))
+
+# plot
+p.infect.cond <- ggplot(results.cond.f.infect.3 %>% filter(ccFDR<0.0002857143), aes(HLA, covpheno, fill=beta)) +
+  geom_tile(color='black') +
+  ylab('covariate phenotype') +
+  facet_wrap(~pheno) +
+  scale_fill_gradient2(low="seagreen", high="red", na.value="grey") +
+  theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5, size=7), axis.text.y=element_text(size=7.5), 
+        axis.title.y=element_text(margin=margin(t=0, r=20, b=0, l=0), size=12),
+        axis.title.x=element_blank(),
+        panel.border=element_rect(size=0.3, fill=NA),
+        panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+        panel.background=element_rect(fill="white", colour="white"), axis.ticks=element_blank(),
+        legend.key.size=unit(0.75, 'line'), legend.margin=margin(t=0, r=10, b=0, l=10),
+        legend.title=element_text(size=10), legend.text=element_text(size=8))  
+
+p.autoimm.cond <- ggplot(results.cond.f.autoimm.3%>% filter(ccFDR<0.0002857143), aes(HLA, covpheno, fill=beta)) +
+  geom_tile(color='black') +
+  ylab('covariate phenotype') +
+  facet_wrap(~pheno) +
+  scale_fill_gradient2(low="seagreen", high="red", na.value="grey") +
+  theme(axis.text.x=element_text(angle=90, hjust=1, vjust=0.5, size=7), axis.text.y=element_text(size=7.5), 
+        axis.title.y=element_text(margin=margin(t=0, r=20, b=0, l=0), size=12),
+        axis.title.x=element_blank(),
+        panel.border=element_rect(size=0.3, fill=NA),
+        panel.grid.major=element_blank(), panel.grid.minor=element_blank(),
+        legend.key.size=unit(0.75, 'line'), legend.margin=margin(t=0, r=10, b=0, l=10),
+        panel.background=element_rect(fill="white", colour="white"), axis.ticks=element_blank(), 
+        legend.title=element_text(size=10), legend.text=element_text(size=8)) 
+
+
+
 
 ## --------------------------------------------------------
 ## Figures
@@ -487,7 +565,7 @@ dev.off()
 
 # Figure 2
 jpeg('./results/figures/Figure2.jpg', height=5.5, width=10, units='in', res=600)                           
-ggarrange(p.studies.comp, p.rep.corr, 
+ggarrange(p.studies.comp.2, p.rep.corr, 
           nrow=1, ncol=2, widths=c(2, 0.85), labels=c('a', 'b'), font.label=list(size=15))
 dev.off()
 
@@ -499,9 +577,9 @@ ggarrange(p.infect.cond, p.autoimm.cond,
 dev.off()
 
 # Figure 4
-jpeg('./results/figures/Figure4.jpg', height=4.5, width=10, units='in', res=600)                           
-p.inf.autoimm.ccfdr
-dev.off()
+# jpeg('./results/figures/Figure4.jpg', height=4.5, width=10, units='in', res=600)                           
+# p.inf.autoimm.ccfdr
+# dev.off()
 
 
 
