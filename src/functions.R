@@ -1,7 +1,8 @@
 
 ## libs
 sapply(c('tidyverse','data.table','ggpubr','viridis','rasterpdf', 'MASS', 'icd','mutoss', 'metap', 'cfdr.pleio',
-         'sfsmisc',  'ghibli', 'RColorBrewer', 'SPAtest', 'ggstance', 'ggrepel', 'readxl', 'biomaRt' ,'qqplotr'),
+         'sfsmisc',  'ghibli', 'RColorBrewer', 'SPAtest', 'ggstance', 'ggrepel', 'readxl', 'biomaRt' ,'qqplotr',
+         'ggplotify'),
        library, character.only=T)
 # , 'Biostrings', 'circlize',
 options(stringsAsFactors=F)

@@ -262,10 +262,36 @@ p.hla.phewas <- ggplot(results.anno.3, aes(logP2, ICD_chapter)) +
         strip.text=element_text(size=11)) 
 
 
-# Figure 1
-jpeg('./results/figures/Figure1.jpg', height=4.5, width=10, units='in', res=600)                           
-p.hla.phewas
+
+## --------------------------------------------------------
+## PheWAS QQ plot
+## --------------------------------------------------------
+
+jpeg('./results/figures/FigureS1_qqplot_by_ICD.jpg', height=18.5, width=12, units='in', res=600)  
+op <- par(mfrow=c(6,4), oma=c(1, 1, 3, 1))
+icd.qqplots <- map(results.anno.3$ICD_chapter %>% levels %>% rev %>% .[1:22], function(x) {
+  print(x)
+  out <- filter(results.anno.3, ICD_chapter==x)$FisherP %>% na.omit
+  qqPlot(out, main=str_wrap(x, 40), cex.main=1)
+  mtext("Q-Q plots by ICD chapter", side=3, line=0, adj=0, outer=T, cex=1.1, font=2)
+})
 dev.off()
+par(op)
+
+jpeg('./results/figures/FigureS1_qqplot_by_Gene.jpg', height=7, width=12, units='in', res=600)  
+op <- par(mfrow=c(2,4), oma=c(1, 1, 3, 1))
+icd.qqplots <- map(results.anno.3$gene %>% levels, function(x) {
+  print(x)
+  out <- filter(results.anno.3, gene==x)$FisherP %>% na.omit
+  qqPlot(out, main=paste0('HLA-', x), cex.main=1.5)
+  mtext("Q-Q plots by HLA gene", side=3, line=0, adj=0, outer=T, cex=1.1, font=2)
+})
+dev.off()
+par(op)
+
+# append into one jpg and convert to PDF
+system("convert -append ./results/figures/FigureS1_qqplot_*.jpg ./results/figures/FigureS1_qqplots.jpg")
+system("img2pdf ./results/figures/FigureS1_qqplots.jpg --output ./results/figures/FigureS1_qqplots.pdf")
 
 
 ## --------------------------------------------------------
@@ -365,13 +391,13 @@ p.studies.comp <- ggplot(studies.comp, aes(odds_ratio_study, odds_ratio_y)) +
 
 p.studies.comp.2 <- ggplot(studies.comp, aes(odds_ratio_study %>% log, odds_ratio_y %>% log)) +
   geom_point(aes(fill=phenotype, shape=study, group=group, color=phenotype), alpha=0.95, size=3) +
-  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=0.4, nudge_y=-0.2, 
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=0.7, nudge_y=-0.5, 
                    data=studies.comp[c(184, 187, 189, 54, 66, 109, 194, 199, 206, 190, 193, 164, 204, 208), ],
                    size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0, direction='both') +
-  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=-0.3, nudge_y=-0.1, 
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.15, nudge_x=-0.2, nudge_y=0.5, 
                    data=studies.comp[c(52, 78, 138, 139, 140, 201), ],
                    size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0, direction='both') +
-  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.3, nudge_x=0.2, nudge_y=0,
+  geom_label_repel(aes(odds_ratio_study %>% log, odds_ratio_y %>% log, label=snp), segment.size=0.1, nudge_x=0.5, nudge_y=0,
                    data=studies.comp[c(116, 118, 85, 2, 125), ], 
                    direction='both', size=1.8, segment.alpha=0.6, color='grey25', alpha=0.8, force=8, min.segment.length=0) +
   scale_shape_manual(values=c(24, 21, 23)) +
@@ -575,11 +601,5 @@ ggarrange(p.infect.cond, p.autoimm.cond,
           nrow=2, ncol=1, heights=c(1.05, 0.95), labels=c('a', 'b'), common.legend=T, align='v', 
           legend='right', font.label=list(size=15))
 dev.off()
-
-# Figure 4
-# jpeg('./results/figures/Figure4.jpg', height=4.5, width=10, units='in', res=600)                           
-# p.inf.autoimm.ccfdr
-# dev.off()
-
 
 
