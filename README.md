@@ -6,7 +6,7 @@ Published manuscript: [HLA-disease association and pleiotropy landscape in over 
 Hum Immunol. 2022 Feb 24:S0198-8859(22)00035-0. doi: 10.1016/j.humimm.2022.02.003.
 
 
-## code (./src/)
+## code (./src)
 Scripts for associations and plotting:
 
 `run_HLA_allele_assoc.R` HLA allele association tests
